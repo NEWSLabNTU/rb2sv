@@ -49,8 +49,6 @@ class rb2sv:
             *self.__convertible_topics,
         )
 
-        self.__construct_project_structure()
-
     def __log(self, *args, **kargs):
         if self.logging:
             print(*args, **kargs)
@@ -65,11 +63,28 @@ class rb2sv:
             os.makedirs(os.path.join(self.project_dir, topic, "img"), exist_ok=True)
             os.makedirs(os.path.join(self.project_dir, topic, "meta"), exist_ok=True)
 
+    def __construct_project_meta(self):
+        """
+        Create the meta.json file for project's meta.
+        """
+        meta = {
+            "classes": [],
+            "tags": [
+                {"name": "PoseStamped", "color": "#ED68A1", "value_type": "any_string"}
+            ],
+            "projectType": "images",
+        }
+        with open(os.path.join(self.project_dir, "meta.json"), "w") as f:
+            json.dump(meta, f)
+
     def read_into_project(self):
         """
         Dispatching function to store various msg types into project file
         by calling corresponding reading function
         """
+        self.__construct_project_structure()
+        self.__construct_project_meta()
+
         while self.reader.has_next():
             (topic_name, data, timestamp) = self.reader.read_next()
             match self.__type_dict[topic_name]:
