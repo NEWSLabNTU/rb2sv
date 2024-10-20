@@ -13,6 +13,13 @@ opencv-python = "^4.10.0.84"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"
+poethepoet = "^0.29.0"
+
+
+[tool.poe.tasks.rb2sv]
+cmd = "python ./src/main.py"
+cwd = "."
+
 
 [build-system]
 requires = ["poetry-core"]

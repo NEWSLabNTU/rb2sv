@@ -5,6 +5,7 @@ Define various utility functions.
 """
 
 import os
+import sys
 
 
 def construct_file_path(
@@ -21,3 +22,17 @@ def construct_file_path(
 
     topic_name = topic_name.strip("/").replace("/", "-")
     return os.path.join(project_dir, topic_name, file_type, file_name)
+
+
+def prompt_confirm():
+    """
+    Prompt the user to continue the process or quit.
+    """
+    while True:
+        ans = input("Continue? ([Y]/n)")
+        if ans in ("y", "Y", ""):
+            return
+        elif ans in ("n", "N"):
+            sys.exit(0)
+        else:
+            print("Invlaid input. Enter 'y' to continue or 'n' to quit.")

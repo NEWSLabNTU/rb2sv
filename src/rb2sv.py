@@ -13,22 +13,24 @@ import rosbag2_py
 from rclpy.serialization import deserialize_message
 from sensor_msgs.msg import Image, CompressedImage
 
-from . import utils
+import utils
+import config
 
 
-class rb2sv:
+class Rb2sv:
 
     __type_dict = {}
     __supported_types = ["sensor_msgs/msg/CompressedImage", "sensor_msgs/msg/Image"]
     __convertible_topics = set()
 
-    def __init__(self, bag_path: str, project_dir: str, logging=True) -> None:
-        self.logging = logging
-        self.project_dir = project_dir
+    def __init__(self) -> None:
+        self.args = config.Rb2svConfig().parse()
 
         # Prepare the reader
         self.reader = rosbag2_py.SequentialReader()
-        storage_options = rosbag2_py.StorageOptions(uri=bag_path, storage_id="sqlite3")
+        storage_options = rosbag2_py.StorageOptions(
+            uri=self.args.bag_path, storage_id="sqlite3"
+        )
         converter_options = rosbag2_py.ConverterOptions(
             input_serialization_format="cdr", output_serialization_format="cdr"
         )
@@ -49,8 +51,11 @@ class rb2sv:
             *self.__convertible_topics,
         )
 
+        # prompt the user to confirm
+        utils.prompt_confirm()
+
     def __log(self, *args, **kargs):
-        if self.logging:
+        if not self.args.quiet:
             print(*args, **kargs)
 
     def __construct_project_structure(self):
@@ -59,9 +64,15 @@ class rb2sv:
         """
         for topic in self.__convertible_topics:
             topic = topic.strip("/").replace("/", "-")
-            os.makedirs(os.path.join(self.project_dir, topic, "ann"), exist_ok=True)
-            os.makedirs(os.path.join(self.project_dir, topic, "img"), exist_ok=True)
-            os.makedirs(os.path.join(self.project_dir, topic, "meta"), exist_ok=True)
+            os.makedirs(
+                os.path.join(self.args.project_dir, topic, "ann"), exist_ok=True
+            )
+            os.makedirs(
+                os.path.join(self.args.project_dir, topic, "img"), exist_ok=True
+            )
+            os.makedirs(
+                os.path.join(self.args.project_dir, topic, "meta"), exist_ok=True
+            )
 
     def __construct_project_meta(self):
         """
@@ -70,11 +81,15 @@ class rb2sv:
         meta = {
             "classes": [],
             "tags": [
-                {"name": "PoseStamped", "color": "#ED68A1", "value_type": "any_string"}
+                {
+                    "name": "PoseStamped",
+                    "color": self.args.pose_tag_color,
+                    "value_type": "any_string",
+                }
             ],
-            "projectType": "images",
+            "projectType": self.args.project_type,
         }
-        with open(os.path.join(self.project_dir, "meta.json"), "w") as f:
+        with open(os.path.join(self.args.project_dir, "meta.json"), "w") as f:
             json.dump(meta, f)
 
     def read_into_project(self):
@@ -106,7 +121,7 @@ class rb2sv:
 
         img_name = str(timestamp) + ".jpeg"
         img_path = utils.construct_file_path(
-            self.project_dir, topic_name, "img", img_name
+            self.args.project_dir, topic_name, "img", img_name
         )
         self.__log(f"Transfering {img_path}")
 
@@ -132,7 +147,7 @@ class rb2sv:
             "objects": [],
         }
         ann_path = utils.construct_file_path(
-            self.project_dir, topic_name, "ann", img_name + ".json"
+            self.args.project_dir, topic_name, "ann", img_name + ".json"
         )
         with open(ann_path, "w") as j:
             json.dump(annotation, j)
