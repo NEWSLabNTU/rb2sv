@@ -13,7 +13,7 @@ import rosbag2_py
 from rclpy.serialization import deserialize_message
 from sensor_msgs.msg import Image, CompressedImage
 
-import utils
+from . import utils
 
 
 class rb2sv:
@@ -60,6 +60,7 @@ class rb2sv:
         Construct the directory structure based on supervisely format
         """
         for topic in self.__convertible_topics:
+            topic = topic.strip("/").replace("/", "-")
             os.makedirs(os.path.join(self.project_dir, topic, "ann"), exist_ok=True)
             os.makedirs(os.path.join(self.project_dir, topic, "img"), exist_ok=True)
             os.makedirs(os.path.join(self.project_dir, topic, "meta"), exist_ok=True)
@@ -88,7 +89,7 @@ class rb2sv:
         """
         (topic_name, data, timestamp) = record
 
-        img_name = timestamp + ".jpeg"
+        img_name = str(timestamp) + ".jpeg"
         img_path = utils.construct_file_path(
             self.project_dir, topic_name, "img", img_name
         )
