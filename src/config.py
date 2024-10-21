@@ -2,6 +2,8 @@ import os
 import re
 import argparse
 
+import utils
+
 
 class Rb2svConfig:
 
@@ -56,6 +58,9 @@ class Rb2svConfig:
         args = self.parser.parse_args()
         if args.project_dir is None:
             args.project_dir = f"./{os.path.basename(args.bag_path)}-supervisely"
+        self.args = args
+
+        self.__check_config()
         return args
 
     def __is_hex_color(self, value: str) -> str:
@@ -63,3 +68,12 @@ class Rb2svConfig:
         if not re.fullmatch(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$", value):
             raise argparse.ArgumentTypeError(f"{value} is not a valid hex color code")
         return value
+
+    def __check_config(self):
+        """
+        Check the validity of the configuration.
+        """
+        # check if the output directory exists
+        if os.path.exists(self.args.project_dir):
+            print(f"WARN: The output directory {self.args.project_dir} already exists.")
+            utils.prompt_confirm(default=False)

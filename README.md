@@ -13,6 +13,11 @@ poetry install
 ```
 
 # Usage
+**Source** the ROS2 setup script before you start.
+```bash
+source /opt/ros/humble/setup.bash
+```
+
 ## Syntax
 ```bash
 poetry run poe rb2sv [-h] -b BAG_PATH [-p PROJECT_DIR] [--project-type {images}] [-q] [--pose-tag-color POSE_TAG_COLOR]

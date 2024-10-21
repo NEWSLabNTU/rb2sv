@@ -24,13 +24,23 @@ def construct_file_path(
     return os.path.join(project_dir, topic_name, file_type, file_name)
 
 
-def prompt_confirm():
+def prompt_confirm(default=True):
     """
     Prompt the user to continue the process or quit.
     """
     while True:
-        ans = input("Continue? ([Y]/n)")
-        if ans in ("y", "Y", ""):
+        ans = (
+            input("Continue? ([Y]/n)")
+            if default is True
+            else input("Continue? (y/[N])")
+        )
+        if ans == "":
+            if default is True:
+                return
+            else:
+                sys.exit(0)
+
+        if ans in ("y", "Y"):
             return
         elif ans in ("n", "N"):
             sys.exit(0)
