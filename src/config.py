@@ -27,6 +27,16 @@ class Rb2svConfig:
             help="The output directory of the converted data.",
         )
 
+        # specify the topics for image type and tag type to convert
+        parser.add_argument(
+            "-t",
+            "--topic-pairs",
+            required=True,
+            type=self.__parse_topic_tuple,
+            nargs="+",
+            help="The topic pairs of image type and tag type, seperated by comma.",
+        )
+
         # project type
         parser.add_argument(
             "--project-type",
@@ -48,7 +58,7 @@ class Rb2svConfig:
         parser.add_argument(
             "--pose-tag-color",
             type=self.__is_hex_color,
-            default="#ED68A1",
+            default="#ED68A1",  # hot pink
             help="The hex color code of the pose tag.",
         )
 
@@ -68,6 +78,14 @@ class Rb2svConfig:
         if not re.fullmatch(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$", value):
             raise argparse.ArgumentTypeError(f"{value} is not a valid hex color code")
         return value
+
+    def __parse_topic_tuple(self, value: str) -> tuple[str, str]:
+        try:
+            return tuple(value.strip("()").split(","))
+        except ValueError:
+            raise argparse.ArgumentTypeError(
+                f"argument --topic-pairs must be in format (topicA-img-type, topicB-tag-type)"
+            )
 
     def __check_config(self):
         """
