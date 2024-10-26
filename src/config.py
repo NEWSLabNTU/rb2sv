@@ -81,7 +81,8 @@ class Rb2svConfig:
 
     def __parse_topic_tuple(self, value: str) -> tuple[str, str]:
         try:
-            return tuple(value.strip("()").split(","))
+            vals = value.strip("()").split(",")
+            return tuple([t.strip() for t in vals])
         except ValueError:
             raise argparse.ArgumentTypeError(
                 f"argument --topic-pairs must be in format (topicA-img-type, topicB-tag-type)"

@@ -6,7 +6,7 @@ Main class definition of the module rb2sv.
 
 import os
 import json
-import sys
+from itertools import chain
 
 import cv2
 import numpy as np
@@ -17,7 +17,8 @@ from geometry_msgs.msg import PoseStamped
 
 import utils
 import config
-from error import InvalidTopicError
+from model.error import InvalidTopicError
+from model.bidict_filtered import BidictWithNoneFilter
 
 
 class Rb2sv:
@@ -28,6 +29,7 @@ class Rb2sv:
         "sensor_msgs/msg/Image",
     ]
     __supported_tag_types = ["geometry_msgs/msg/PoseStamped"]
+    __prev_img_name_for_tag = ""
 
     def __init__(self) -> None:
         self.args = config.Rb2svConfig().parse()
@@ -81,30 +83,24 @@ class Rb2sv:
 
         # if the user has provided topic-pair, check for validity
         assert self.args.topic_pairs is not None, "--topic-pairs must be provided"
-        topic_pairs = self.args.topic_pairs
+        topic_pairs = BidictWithNoneFilter(
+            {img_top: tag_top for (img_top, tag_top) in self.args.topic_pairs}
+        )
 
-        for pairs in topic_pairs:
-            img_topic, tag_topic = None, None
-            if len(pairs) == 2:
-                img_topic, tag_topic = pairs
-            elif len(pairs) == 1:
-                img_topic = pairs[0]
-            else:
-                raise ValueError(f"--topic-pairs format is incorrect: {pairs}")
-
-            if img_topic is None or img_topic not in topics_have_img_types:
+        for img_topic, tag_topic in topic_pairs.items():
+            if img_topic not in topics_have_img_types:
                 raise InvalidTopicError(
                     f"{img_topic}'s message type is not a supported image type."
                 )
-            if tag_topic is None or tag_topic not in topics_have_tag_types:
+            if tag_topic is not None and tag_topic not in topics_have_tag_types:
                 raise InvalidTopicError(
                     f"{tag_topic}'s message type is not a supported tag type."
                 )
 
-        print("Topics with image type user specify: ", (p[0] for p in topic_pairs))
+        print("Topics with image type user specify:", *[t for t in topic_pairs.keys()])
         print(
-            "Topics with tag type user specify: ",
-            (p[1] for p in topic_pairs if len(p) == 2),
+            "Topics with tag type user specify:",
+            *[t for t in topic_pairs.values()],
         )
         print()
         self.topic_pairs = topic_pairs
@@ -114,8 +110,8 @@ class Rb2sv:
         """
         Construct the directory structure based on supervisely format
         """
-        for topic in self.__convertible_topics:
-            topic = topic.strip("/").replace("/", "-")
+        topic_dirs = [t.strip("/").replace("/", "-") for t in self.topic_pairs.keys()]
+        for topic in topic_dirs:
             os.makedirs(
                 os.path.join(self.args.project_dir, topic, "ann"), exist_ok=True
             )
@@ -142,7 +138,7 @@ class Rb2sv:
             "projectType": self.args.project_type,
         }
         with open(os.path.join(self.args.project_dir, "meta.json"), "w") as f:
-            json.dump(meta, f)
+            json.dump(meta, f, indent=4)
 
     def read_into_project(self):
         """
@@ -152,8 +148,14 @@ class Rb2sv:
         self.__construct_project_structure()
         self.__construct_project_meta()
 
+        # contains all topics involved in the conversion process
+        interested_topics = list(chain(*self.topic_pairs.items()))
+
         while self.reader.has_next():
             (topic_name, data, timestamp) = self.reader.read_next()
+            if topic_name not in interested_topics:
+                continue
+
             match self.__type_dict[topic_name]:
                 case "sensor_msgs/msg/CompressedImage":
                     self.__read_images((topic_name, data, timestamp), compressed=True)
@@ -163,6 +165,8 @@ class Rb2sv:
                     self.__read_pose_stamped((topic_name, data, timestamp))
                 case _:
                     pass
+
+        print(f"Successfully convert the rosbag to {self.args.project_dir}")
 
     def __read_images(self, record, compressed: bool):
         """
@@ -191,7 +195,7 @@ class Rb2sv:
             + str(deserialized_msg.header.stamp.nanosec)
             + ".jpeg"
         )
-        img_path = utils.construct_file_path(
+        img_path = utils.construct_img_path(
             self.args.project_dir, topic_name, "img", img_name
         )
         self.__log(f"Transfering {img_path}")
@@ -205,11 +209,11 @@ class Rb2sv:
             "tags": [],
             "objects": [],
         }
-        ann_path = utils.construct_file_path(
+        ann_path = utils.construct_img_path(
             self.args.project_dir, topic_name, "ann", img_name + ".json"
         )
         with open(ann_path, "w") as j:
-            json.dump(annotation, j)
+            json.dump(annotation, j, indent=4)
 
     def __read_pose_stamped(self, record):
         """
@@ -224,6 +228,37 @@ class Rb2sv:
             + str(deserialized_msg.header.stamp.nanosec)
             + ".jpeg"
         )
-        ann_path = utils.construct_file_path(
-            self.args.project_dir, topic_name, "img", img_name
+        if img_name == self.__prev_img_name_for_tag:
+            return
+        self.__prev_img_name_for_tag = img_name
+
+        ann_path = (
+            utils.construct_img_path(
+                self.args.project_dir,
+                self.topic_pairs.inv_filtered[topic_name],
+                "ann",
+                img_name,
+            )
+            + ".json"
         )
+
+        px = deserialized_msg.pose.position.x
+        py = deserialized_msg.pose.position.y
+        pz = deserialized_msg.pose.position.z
+        ox = deserialized_msg.pose.orientation.x
+        oy = deserialized_msg.pose.orientation.y
+        oz = deserialized_msg.pose.orientation.z
+        ow = deserialized_msg.pose.orientation.w
+        tag = {
+            "name": "PoseStamped",
+            "value": f"({px}, {py}, {pz}, {ox}, {oy}, {oz}, {ow})",
+        }
+
+        with open(ann_path, "r+") as f:
+            ann = json.load(f)
+            assert "tags" in ann, f"Annotation file {ann_path} is mal-formed."
+            ann["tags"].append(tag)
+
+            f.seek(0)
+            json.dump(ann, f, indent=4)
+            f.truncate()

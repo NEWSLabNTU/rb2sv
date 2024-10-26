@@ -8,7 +8,7 @@ import os
 import sys
 
 
-def construct_file_path(
+def construct_img_path(
     project_dir: str, topic_name: str, file_type: str, file_name: str
 ):
     """
