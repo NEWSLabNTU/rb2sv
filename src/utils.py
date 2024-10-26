@@ -46,3 +46,7 @@ def prompt_confirm(default=True):
             sys.exit(0)
         else:
             print("Invlaid input. Enter 'y' to continue or 'n' to quit.")
+
+
+def scientific_to_decimal(s: str) -> str:
+    return "{:.35f}".format(float(s)).rstrip("0").rstrip(".")

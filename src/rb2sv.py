@@ -92,7 +92,7 @@ class Rb2sv:
                 raise InvalidTopicError(
                     f"{img_topic}'s message type is not a supported image type."
                 )
-            if tag_topic is not None and tag_topic not in topics_have_tag_types:
+            if tag_topic != "" and tag_topic not in topics_have_tag_types:
                 raise InvalidTopicError(
                     f"{tag_topic}'s message type is not a supported tag type."
                 )
@@ -232,23 +232,20 @@ class Rb2sv:
             return
         self.__prev_img_name_for_tag = img_name
 
-        ann_path = (
-            utils.construct_img_path(
-                self.args.project_dir,
-                self.topic_pairs.inv_filtered[topic_name],
-                "ann",
-                img_name,
-            )
-            + ".json"
+        ann_path = utils.construct_img_path(
+            self.args.project_dir,
+            self.topic_pairs.inv_filtered[topic_name],
+            "ann",
+            img_name + ".json",
         )
 
-        px = deserialized_msg.pose.position.x
-        py = deserialized_msg.pose.position.y
-        pz = deserialized_msg.pose.position.z
-        ox = deserialized_msg.pose.orientation.x
-        oy = deserialized_msg.pose.orientation.y
-        oz = deserialized_msg.pose.orientation.z
-        ow = deserialized_msg.pose.orientation.w
+        px = utils.scientific_to_decimal(deserialized_msg.pose.position.x)
+        py = utils.scientific_to_decimal(deserialized_msg.pose.position.y)
+        pz = utils.scientific_to_decimal(deserialized_msg.pose.position.z)
+        ox = utils.scientific_to_decimal(deserialized_msg.pose.orientation.x)
+        oy = utils.scientific_to_decimal(deserialized_msg.pose.orientation.y)
+        oz = utils.scientific_to_decimal(deserialized_msg.pose.orientation.z)
+        ow = utils.scientific_to_decimal(deserialized_msg.pose.orientation.w)
         tag = {
             "name": "PoseStamped",
             "value": f"({px}, {py}, {pz}, {ox}, {oy}, {oz}, {ow})",
