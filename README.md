@@ -12,10 +12,23 @@ Install Python Package Dependencies with the following command:
 poetry install
 ```
 
+# Supported Topic Types
+- **Image Type**
+    - sensor_msgs/msg/Image
+    - sensor_msgs/msg/CompressedImage
+
+- **Tag Type**
+    - geometry_msgs/msg/PoseStamped
+
 # Usage
+Clone the repo.
+```bash
+git clone https://github.com/NEWSLabNTU/rb2sv.git
+cd rb2sv
+```
 **Source** the ROS2 setup script before you start.
 ```bash
-source /opt/ros/humble/setup.bash
+source /opt/ros/$ROS_DISTRO/setup.bash
 ```
 
 ## Syntax
