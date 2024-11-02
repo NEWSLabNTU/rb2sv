@@ -7,6 +7,14 @@ Define various utility functions.
 import os
 import sys
 
+from model.error import InvalidConfigError
+
+
+def is_yaml_file(p: str):
+    if p.endswith(".yaml"):
+        return p
+    raise InvalidConfigError(f"Config file should be in yaml format")
+
 
 def construct_img_path(
     project_dir: str, topic_name: str, file_type: str, file_name: str

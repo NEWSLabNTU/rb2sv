@@ -1,98 +1,76 @@
 import os
 import re
-import argparse
+
+import yaml
 
 import utils
+from model.error import InvalidConfigError
 
 
 class Rb2svConfig:
+    required_args = ["bag_path", "topic_pairs", "project_type"]
+    all_args = [
+        "bag_path",
+        "project_dir",
+        "project_type",
+        "topic_pairs",
+        "pose_tag_color",
+    ]
 
-    def __init__(self) -> None:
-        parser = argparse.ArgumentParser(description="Configuration of rb2sv")
+    def __init__(self, yaml_file_path: str) -> None:
+        with open(yaml_file_path) as f:
+            config = yaml.safe_load(f)
 
-        # path to the rosbag to be converted
-        parser.add_argument(
-            "-b",
-            "--bag-path",
-            type=str,
-            required=True,
-            help="The path to the rosbag directory you want to convert.",
-        )
+        for k, v in config.items():
+            if k != "topic_pairs":
+                v = str(v)
+            setattr(self, k, v)
 
-        # path to the project(output) directory, default: ./{bag name}-supervisely
-        parser.add_argument(
-            "-p",
-            "--project-dir",
-            type=str,
-            help="The output directory of the converted data.",
-        )
+        self.__parse()
 
-        # specify the topics for image type and tag type to convert
-        parser.add_argument(
-            "-t",
-            "--topic-pairs",
-            required=True,
-            type=self.__parse_topic_tuple,
-            nargs="+",
-            help="The topic pairs of image type and tag type, seperated by comma.",
-        )
+    def __parse(self):
+        # Check if all required args are provided
+        for p in self.required_args:
+            if not hasattr(self, p):
+                raise InvalidConfigError(f"args {p} is required.")
 
-        # project type
-        parser.add_argument(
-            "--project-type",
-            type=str,
-            choices=["images"],
-            default="images",
-            help="The project type of the supervisely dataset. Can be one of ['images', 'videos', 'point_clouds'].",
-        )
+        # setting default values
+        if not hasattr(self, "project_dir"):
+            setattr(
+                self, "project_dir", f"./{os.path.basename(self.bag_path)}-supervisely"
+            )
+        if not hasattr(self, "pose_tag_color"):
+            setattr(self, "pose_tag_color", "#ED68A1")  # hot pink
 
-        # logging or not
-        parser.add_argument(
-            "-q",
-            "--quiet",
-            action="store_true",
-            help="No logging during the conversion.",
-        )
+        # check config validity and parse them
+        if not os.path.exists(self.bag_path):
+            raise InvalidConfigError(f"{self.bag_path} does not exist.")
 
-        # color for pose tag
-        parser.add_argument(
-            "--pose-tag-color",
-            type=self.__is_hex_color,
-            default="#ED68A1",  # hot pink
-            help="The hex color code of the pose tag.",
-        )
+        if os.path.exists(self.project_dir):
+            print(f"WARN: The output directory {self.project_dir} already exists.")
+            utils.prompt_confirm(default=False)
 
-        self.parser = parser
+        self.project_type = self.project_type.lower()
+        if self.project_type not in ("images", "videos", "point_clouds"):
+            raise InvalidConfigError(
+                f"Only accepts the following project type: ['images', 'videos', 'point_clouds']"
+            )
 
-    def parse(self):
-        args = self.parser.parse_args()
-        if args.project_dir is None:
-            args.project_dir = f"./{os.path.basename(args.bag_path)}-supervisely"
-        self.args = args
+        for i, pair in enumerate(self.topic_pairs):
+            self.topic_pairs[i] = self.__parse_topic_tuple(pair)
 
-        self.__check_config()
-        return args
+        self.__is_hex_color(self.pose_tag_color)
 
-    def __is_hex_color(self, value: str) -> str:
+    def __is_hex_color(self, value: str):
         # Regex for matching hex color codes (3 or 6 digits, with optional #)
         if not re.fullmatch(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$", value):
-            raise argparse.ArgumentTypeError(f"{value} is not a valid hex color code")
-        return value
+            raise InvalidConfigError(f"{value} is not a valid hex color code")
 
     def __parse_topic_tuple(self, value: str) -> tuple[str, str]:
         try:
             vals = value.strip("()").split(",")
             return tuple([t.strip() for t in vals])
         except ValueError:
-            raise argparse.ArgumentTypeError(
-                f"argument --topic-pairs must be in format (topicA-img-type, topicB-tag-type)"
+            raise InvalidConfigError(
+                f"topic-pairs must be in format (topicA-img-type, topicB-tag-type)"
             )
-
-    def __check_config(self):
-        """
-        Check the validity of the configuration.
-        """
-        # check if the output directory exists
-        if os.path.exists(self.args.project_dir):
-            print(f"WARN: The output directory {self.args.project_dir} already exists.")
-            utils.prompt_confirm(default=False)

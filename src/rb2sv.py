@@ -31,8 +31,9 @@ class Rb2sv:
     __supported_tag_types = ["geometry_msgs/msg/PoseStamped"]
     __prev_img_name_for_tag = ""
 
-    def __init__(self) -> None:
-        self.args = config.Rb2svConfig().parse()
+    def __init__(self, args) -> None:
+        self.quiet = args.quiet
+        self.args = config.Rb2svConfig(args.config_file_path)
 
         # Prepare the reader
         self.reader = rosbag2_py.SequentialReader()
@@ -50,7 +51,7 @@ class Rb2sv:
         utils.prompt_confirm()
 
     def __log(self, *args, **kargs):
-        if not self.args.quiet:
+        if not self.quiet:
             print(*args, **kargs)
 
     def __check_topics_validity(self):
