@@ -23,7 +23,7 @@ the reason might be that you forgot to source ros2's setup.bash.
     )
     parser.add_argument(
         "-c",
-        "--config_file_path",
+        "--config-file-path",
         required=True,
         type=is_yaml_file,
         help="Tool configuration yaml file",
