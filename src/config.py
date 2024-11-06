@@ -3,8 +3,8 @@ import re
 
 import yaml
 
-import utils
-from model.error import InvalidConfigError
+import utils.util as util
+from error import InvalidConfigError
 
 
 class Rb2svConfig:
@@ -48,7 +48,7 @@ class Rb2svConfig:
 
         if os.path.exists(self.project_dir):
             print(f"WARN: The output directory {self.project_dir} already exists.")
-            utils.prompt_confirm(default=False)
+            util.prompt_confirm(default=False)
 
         self.project_type = self.project_type.lower()
         if self.project_type not in ("images", "videos", "point_clouds"):

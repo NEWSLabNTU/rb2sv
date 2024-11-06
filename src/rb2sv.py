@@ -8,17 +8,14 @@ import os
 import json
 from itertools import chain
 
-import cv2
-import numpy as np
 import rosbag2_py
-from rclpy.serialization import deserialize_message
-from sensor_msgs.msg import Image, CompressedImage
-from geometry_msgs.msg import PoseStamped
 
-import utils
 import config
-from model.error import InvalidTopicError
-from model.bidict_filtered import BidictWithNoneFilter
+import utils.util as util
+from error import InvalidTopicError
+from interfaces.image import ImageConverter
+from utils.bidict_filtered import BidictWithNoneFilter
+from interfaces.pose_stamped import PoseStampedConverter
 
 
 class Rb2sv:
@@ -29,7 +26,6 @@ class Rb2sv:
         "sensor_msgs/msg/Image",
     ]
     __supported_tag_types = ["geometry_msgs/msg/PoseStamped"]
-    __prev_img_name_for_tag = ""
 
     def __init__(self, args) -> None:
         self.quiet = args.quiet
@@ -48,11 +44,11 @@ class Rb2sv:
         self.__check_topics_validity()
 
         # prompt the user to confirm
-        utils.prompt_confirm()
+        util.prompt_confirm()
 
-    def __log(self, *args, **kargs):
-        if not self.quiet:
-            print(*args, **kargs)
+        # prepare interfaces converter
+        self.image_converter = ImageConverter()
+        self.pos_converter = PoseStampedConverter()
 
     def __check_topics_validity(self):
         """
@@ -159,104 +155,16 @@ class Rb2sv:
 
             match self.__type_dict[topic_name]:
                 case "sensor_msgs/msg/CompressedImage":
-                    self.__read_images((topic_name, data, timestamp), compressed=True)
+                    self.image_converter.convert(
+                        (topic_name, data, timestamp), compressed=True
+                    )
                 case "sensor_msgs/msg/Image":
-                    self.__read_images((topic_name, data, timestamp), compressed=False)
+                    self.image_converter.convert(
+                        (topic_name, data, timestamp), compressed=False
+                    )
                 case "geometry_msgs/msg/PoseStamped":
-                    self.__read_pose_stamped((topic_name, data, timestamp))
+                    self.pos_converter.convert((topic_name, data, timestamp))
                 case _:
                     pass
 
         print(f"Successfully convert the rosbag to {self.args.project_dir}")
-
-    def __read_images(self, record, compressed: bool):
-        """
-        Read messages of image type and create individual annotation json file.
-
-        compressed=True for sensor_msgs/msg/CompressedImage,
-        compressed=False for sensor_msgs/msg/Image
-        """
-        (topic_name, data, timestamp) = record
-
-        # Deserialize the data and store the image
-        if compressed:
-            deserialized_msg = deserialize_message(data, CompressedImage)
-            img = cv2.imdecode(
-                np.frombuffer(deserialized_msg.data, np.uint8), cv2.IMREAD_COLOR
-            )
-        else:
-            deserialized_msg = deserialize_message(data, Image)
-            img = np.frombuffer(deserialized_msg.data, np.uint8).reshape(
-                deserialized_msg.height, deserialized_msg.width, -1
-            )
-
-        img_name = (
-            str(deserialized_msg.header.stamp.sec)
-            + "-"
-            + str(deserialized_msg.header.stamp.nanosec)
-            + ".jpeg"
-        )
-        img_path = utils.construct_img_path(
-            self.args.project_dir, topic_name, "img", img_name
-        )
-        self.__log(f"Transfering {img_path}")
-        cv2.imwrite(img_path, img, [cv2.IMWRITE_JPEG_QUALITY, 100])
-
-        # Prepare annotation file
-        annotation = {
-            "description": topic_name,
-            "name": img_name,
-            "size": {"width": img.shape[1], "height": img.shape[0]},
-            "tags": [],
-            "objects": [],
-        }
-        ann_path = utils.construct_img_path(
-            self.args.project_dir, topic_name, "ann", img_name + ".json"
-        )
-        with open(ann_path, "w") as j:
-            json.dump(annotation, j, indent=4)
-
-    def __read_pose_stamped(self, record):
-        """
-        Read msgs of geometry_msgs/msg/PoseStamped type and convert them to the tag of
-        the corresponding image.
-        """
-        (topic_name, data, timestamp) = record
-        deserialized_msg = deserialize_message(data, PoseStamped)
-        img_name = (
-            str(deserialized_msg.header.stamp.sec)
-            + "-"
-            + str(deserialized_msg.header.stamp.nanosec)
-            + ".jpeg"
-        )
-        if img_name == self.__prev_img_name_for_tag:
-            return
-        self.__prev_img_name_for_tag = img_name
-
-        ann_path = utils.construct_img_path(
-            self.args.project_dir,
-            self.topic_pairs.inv_filtered[topic_name],
-            "ann",
-            img_name + ".json",
-        )
-
-        px = utils.scientific_to_decimal(deserialized_msg.pose.position.x)
-        py = utils.scientific_to_decimal(deserialized_msg.pose.position.y)
-        pz = utils.scientific_to_decimal(deserialized_msg.pose.position.z)
-        ox = utils.scientific_to_decimal(deserialized_msg.pose.orientation.x)
-        oy = utils.scientific_to_decimal(deserialized_msg.pose.orientation.y)
-        oz = utils.scientific_to_decimal(deserialized_msg.pose.orientation.z)
-        ow = utils.scientific_to_decimal(deserialized_msg.pose.orientation.w)
-        tag = {
-            "name": "PoseStamped",
-            "value": f"({px}, {py}, {pz}, {ox}, {oy}, {oz}, {ow})",
-        }
-
-        with open(ann_path, "r+") as f:
-            ann = json.load(f)
-            assert "tags" in ann, f"Annotation file {ann_path} is mal-formed."
-            ann["tags"].append(tag)
-
-            f.seek(0)
-            json.dump(ann, f, indent=4)
-            f.truncate()

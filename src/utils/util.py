@@ -7,7 +7,13 @@ Define various utility functions.
 import os
 import sys
 
-from model.error import InvalidConfigError
+from error import InvalidConfigError
+
+
+def log(*args, quiet: bool, **kargs):
+    if quiet:
+        return
+    print(*args, **kargs)
 
 
 def is_yaml_file(p: str):

@@ -1,7 +1,7 @@
 import sys
 import argparse
 
-from utils import is_yaml_file
+from utils.util import is_yaml_file
 
 if __name__ == "__main__":
     # Test the module import

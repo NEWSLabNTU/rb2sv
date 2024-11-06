@@ -1,5 +1,5 @@
 .venv/
 *__pycache__
-examples/example_rosbag/
+examples/*_rosbag/
 out/
 test.py
