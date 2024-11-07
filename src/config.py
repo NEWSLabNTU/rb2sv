@@ -14,10 +14,11 @@ class Rb2svConfig:
         "project_dir",
         "project_type",
         "topic_pairs",
-        "pose_tag_color",
     ]
 
-    def __init__(self, yaml_file_path: str) -> None:
+    def __init__(self, yaml_file_path: str, quiet: bool) -> None:
+        self.quiet = quiet
+
         with open(yaml_file_path) as f:
             config = yaml.safe_load(f)
 
@@ -39,8 +40,6 @@ class Rb2svConfig:
             setattr(
                 self, "project_dir", f"./{os.path.basename(self.bag_path)}-supervisely"
             )
-        if not hasattr(self, "pose_tag_color"):
-            setattr(self, "pose_tag_color", "#ED68A1")  # hot pink
 
         # check config validity and parse them
         if not os.path.exists(self.bag_path):
@@ -51,26 +50,18 @@ class Rb2svConfig:
             util.prompt_confirm(default=False)
 
         self.project_type = self.project_type.lower()
-        if self.project_type not in ("images", "videos", "point_clouds"):
+        if self.project_type not in ("images", "point_clouds"):
             raise InvalidConfigError(
-                f"Only accepts the following project type: ['images', 'videos', 'point_clouds']"
+                f"Only accepts the following project type: ['images', 'point_clouds']"
             )
 
         for i, pair in enumerate(self.topic_pairs):
             self.topic_pairs[i] = self.__parse_topic_tuple(pair)
 
-        self.__is_hex_color(self.pose_tag_color)
-
-    def __is_hex_color(self, value: str):
-        # Regex for matching hex color codes (3 or 6 digits, with optional #)
-        if not re.fullmatch(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$", value):
-            raise InvalidConfigError(f"{value} is not a valid hex color code")
-
     def __parse_topic_tuple(self, value: str) -> tuple[str, str]:
-        try:
-            vals = value.strip("()").split(",")
-            return tuple([t.strip() for t in vals])
-        except ValueError:
-            raise InvalidConfigError(
-                f"topic-pairs must be in format (topicA-img-type, topicB-tag-type)"
-            )
+        vals = value.strip("()").split(",")
+        assert (
+            len(vals) == 2
+        ), "topic-pairs must be in format (topicA-content-type, topicB-tag-type), \
+or (topicA-content-type,) if no tag topics are going to be converted."
+        return tuple([t.strip() for t in vals])

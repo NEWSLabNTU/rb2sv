@@ -15,7 +15,7 @@ HINT: If the modules couldn't be imported are ros2-related,
 the reason might be that you forgot to source ros2's setup.bash.
 """
         )
-        sys.exit(1)
+        raise err
 
     parser = argparse.ArgumentParser()
     parser.add_argument(

@@ -1,7 +1,6 @@
 ---
-bag_path: "examples/example_rosbag" # Required. The path to the rosbag directory you want to convert
+bag_path: "examples/lab2_rosbag" # Required. The path to the rosbag directory you want to convert
 project_dir: "out" # The output directory of the converted data. Defaults to ./{rosbag-name}-supervisely
-project_type: "images" # Required. The project type of the supervisely dataset. Can be one of ['images', 'videos', 'point_clouds']
+project_type: "point_clouds" # Required. The project type of the supervisely dataset. Can be one of ['images', 'point_clouds']
 topic_pairs: # Required. The topic pairs of image type and tag type, seperated by comma
-  - (/out/compressed, /groundtruth_pose)
-pose_tag_color: "#ED68A1" # The hex color code of the pose tag. The default is '#ED68A1'(Hot Pink).
+  - (/sensing/lidar/bf_lidar/points_raw,)

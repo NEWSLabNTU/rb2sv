@@ -12,24 +12,25 @@ import rosbag2_py
 
 import config
 import utils.util as util
-from error import InvalidTopicError
 from interfaces.image import ImageConverter
 from utils.bidict_filtered import BidictWithNoneFilter
 from interfaces.pose_stamped import PoseStampedConverter
+from interfaces.point_cloud_2 import PointCloudConverter
 
 
 class Rb2sv:
 
     __type_dict = {}
-    __supported_image_types = [
-        "sensor_msgs/msg/CompressedImage",
-        "sensor_msgs/msg/Image",
-    ]
-    __supported_tag_types = ["geometry_msgs/msg/PoseStamped"]
+    __support_types = {
+        "content": {
+            "images": ["sensor_msgs/msg/CompressedImage", "sensor_msgs/msg/Image"],
+            "point_clouds": ["sensor_msgs/msg/PointCloud2"],
+        },
+        "tag": ["geometry_msgs/msg/PoseStamped"],
+    }
 
     def __init__(self, args) -> None:
-        self.quiet = args.quiet
-        self.args = config.Rb2svConfig(args.config_file_path)
+        self.args = config.Rb2svConfig(args.config_file_path, args.quiet)
 
         # Prepare the reader
         self.reader = rosbag2_py.SequentialReader()
@@ -47,8 +48,9 @@ class Rb2sv:
         util.prompt_confirm()
 
         # prepare interfaces converter
-        self.image_converter = ImageConverter()
-        self.pos_converter = PoseStampedConverter()
+        self.image_converter = ImageConverter(args=self.args)
+        self.pos_converter = PoseStampedConverter(self.args, self.topic_pairs)
+        self.pcd_converter = PointCloudConverter(self.args)
 
     def __check_topics_validity(self):
         """
@@ -60,43 +62,40 @@ class Rb2sv:
         the corresponding tag topic, then we require the user to specify it clearly.
         """
         topics_and_types = self.reader.get_all_topics_and_types()
-        topics_have_img_types = []
-        topics_have_tag_types = []
         for topic in topics_and_types:
             self.__type_dict[topic.name] = topic.type
-            if topic.type in self.__supported_image_types:
-                topics_have_img_types.append(topic.name)
-            if topic.type in self.__supported_tag_types:
-                topics_have_tag_types.append(topic.name)
 
-        print(
-            "Found convertible topics having image types:",
-            *topics_have_img_types if len(topics_have_img_types) > 0 else "None",
-        )
-        print(
-            "Found convertible topics having tag types:",
-            *topics_have_tag_types if len(topics_have_tag_types) > 0 else "None",
-        )
-
-        # if the user has provided topic-pair, check for validity
-        assert self.args.topic_pairs is not None, "--topic-pairs must be provided"
+        assert self.args.topic_pairs is not None, "topic-pairs must be provided"
         topic_pairs = BidictWithNoneFilter(
             {img_top: tag_top for (img_top, tag_top) in self.args.topic_pairs}
         )
 
-        for img_topic, tag_topic in topic_pairs.items():
-            if img_topic not in topics_have_img_types:
-                raise InvalidTopicError(
-                    f"{img_topic}'s message type is not a supported image type."
-                )
-            if tag_topic != "" and tag_topic not in topics_have_tag_types:
-                raise InvalidTopicError(
-                    f"{tag_topic}'s message type is not a supported tag type."
-                )
+        all_topics_in_bag = self.__type_dict.keys()
+        for content_topic, tag_topic in topic_pairs.items():
+            if self.args.project_type == "point_clouds":
+                assert (
+                    tag_topic == ""
+                ), "Does not support tags for Point Cloud projects now."
 
-        print("Topics with image type user specify:", *[t for t in topic_pairs.keys()])
+            assert (
+                content_topic in all_topics_in_bag
+            ), f"{content_topic} not found in rosbag."
+            assert (
+                self.__type_dict[content_topic]
+                in self.__support_types["content"][self.args.project_type]
+            ), f"{self.__type_dict[content_topic]} is not a supported content type for {self.args.project_type} project"
+
+            if tag_topic != "":
+                assert (
+                    tag_topic in all_topics_in_bag
+                ), f"{tag_topic} not found in rosbag."
+                assert (
+                    self.__type_dict[tag_topic] in self.__support_types["tag"]
+                ), f"{self.__type_dict[tag_topic]} is not a supported tag type"
+
+        print("Content topics to be converted:", *[t for t in topic_pairs.keys()])
         print(
-            "Topics with tag type user specify:",
+            "Tag topics to be converted:",
             *[t for t in topic_pairs.values()],
         )
         print()
@@ -107,31 +106,37 @@ class Rb2sv:
         """
         Construct the directory structure based on supervisely format
         """
+        project_dir = self.args.project_dir
         topic_dirs = [t.strip("/").replace("/", "-") for t in self.topic_pairs.keys()]
-        for topic in topic_dirs:
-            os.makedirs(
-                os.path.join(self.args.project_dir, topic, "ann"), exist_ok=True
-            )
-            os.makedirs(
-                os.path.join(self.args.project_dir, topic, "img"), exist_ok=True
-            )
-            os.makedirs(
-                os.path.join(self.args.project_dir, topic, "meta"), exist_ok=True
-            )
+
+        if self.args.project_type == "images":
+            for topic in topic_dirs:
+                for d in ("ann", "img", "meta"):
+                    os.makedirs(os.path.join(project_dir, topic, d), exist_ok=True)
+        elif self.args.project_type == "point_clouds":
+            for topic in topic_dirs:
+                os.makedirs(
+                    os.path.join(project_dir, topic, "pointcloud"), exist_ok=True
+                )
 
     def __construct_project_meta(self):
         """
         Create the meta.json file for project's meta.
         """
+        tags = []
+        for t in self.topic_pairs.values():
+            if t is not None:
+                tags.append(
+                    {
+                        "name": t.split("/")[-1],
+                        "color": util.random_color(),
+                        "value_type": "any_string",
+                    }
+                )
+
         meta = {
             "classes": [],
-            "tags": [
-                {
-                    "name": "PoseStamped",
-                    "color": self.args.pose_tag_color,
-                    "value_type": "any_string",
-                }
-            ],
+            "tags": tags,
             "projectType": self.args.project_type,
         }
         with open(os.path.join(self.args.project_dir, "meta.json"), "w") as f:
@@ -164,6 +169,8 @@ class Rb2sv:
                     )
                 case "geometry_msgs/msg/PoseStamped":
                     self.pos_converter.convert((topic_name, data, timestamp))
+                case "sensor_msgs/msg/PointCloud2":
+                    self.pcd_converter.convert((topic_name, data, timestamp))
                 case _:
                     pass
 

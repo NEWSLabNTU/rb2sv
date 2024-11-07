@@ -1,3 +1,4 @@
+import os
 import json
 
 import cv2
@@ -6,11 +7,12 @@ from sensor_msgs.msg import Image, CompressedImage
 from rclpy.serialization import deserialize_message
 
 import utils.util as util
+from interfaces.base_converter import BaseConverter
 
 
-class ImageConverter:
-    def __init__(self) -> None:
-        pass
+class ImageConverter(BaseConverter):
+    def __init__(self, args) -> None:
+        super().__init__(args)
 
     def convert(self, record, compressed: bool):
         """
@@ -40,10 +42,10 @@ class ImageConverter:
             + str(deserialized_msg.header.stamp.nanosec)
             + ".jpeg"
         )
-        img_path = util.construct_img_path(
+        img_path = self.construct_img_path(
             self.args.project_dir, topic_name, "img", img_name
         )
-        util.log(f"Transfering {img_path}")
+        self.log(f"Transfering {img_path}")
         cv2.imwrite(img_path, img, [cv2.IMWRITE_JPEG_QUALITY, 100])
 
         # Prepare annotation file
@@ -54,8 +56,21 @@ class ImageConverter:
             "tags": [],
             "objects": [],
         }
-        ann_path = util.construct_img_path(
+        ann_path = self.construct_img_path(
             self.args.project_dir, topic_name, "ann", img_name + ".json"
         )
         with open(ann_path, "w") as j:
             json.dump(annotation, j, indent=4)
+
+    def construct_img_path(self, topic_name: str, file_type: str, file_name: str):
+        """
+        Construct the path to store the image
+        """
+        assert file_type in [
+            "ann",
+            "img",
+            "meta",
+        ], "file type should be one of ['ann', 'img', 'meta']"
+
+        topic_name = topic_name.strip("/").replace("/", "-")
+        return os.path.join(self.args.project_dir, topic_name, file_type, file_name)

@@ -6,36 +6,15 @@ Define various utility functions.
 
 import os
 import sys
+import random
 
 from error import InvalidConfigError
-
-
-def log(*args, quiet: bool, **kargs):
-    if quiet:
-        return
-    print(*args, **kargs)
 
 
 def is_yaml_file(p: str):
     if p.endswith(".yaml"):
         return p
     raise InvalidConfigError(f"Config file should be in yaml format")
-
-
-def construct_img_path(
-    project_dir: str, topic_name: str, file_type: str, file_name: str
-):
-    """
-    Construct the path to store the image
-    """
-    assert file_type in [
-        "ann",
-        "img",
-        "meta",
-    ], "file type should be one of ['ann', 'img', 'meta']"
-
-    topic_name = topic_name.strip("/").replace("/", "-")
-    return os.path.join(project_dir, topic_name, file_type, file_name)
 
 
 def prompt_confirm(default=True):
@@ -64,3 +43,7 @@ def prompt_confirm(default=True):
 
 def scientific_to_decimal(s: str) -> str:
     return "{:.35f}".format(float(s)).rstrip("0").rstrip(".")
+
+
+def random_color():
+    return "#{:06x}".format(random.randint(0, 0xFFFFFF))

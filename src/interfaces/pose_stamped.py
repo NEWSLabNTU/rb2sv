@@ -1,14 +1,18 @@
+import os
 import json
 
 from geometry_msgs.msg import PoseStamped
 from rclpy.serialization import deserialize_message
 
 from utils import util
+from interfaces.base_converter import BaseConverter
 
 
-class PoseStampedConverter:
-    def __init__(self) -> None:
+class PoseStampedConverter(BaseConverter):
+    def __init__(self, args, topic_pairs) -> None:
         self.prev_img_name = ""
+        self.topic_pairs = topic_pairs
+        super().__init__(args)
 
     def convert(self, record):
         """
@@ -29,7 +33,7 @@ class PoseStampedConverter:
             return
         self.prev_img_name = img_name
 
-        ann_path = util.construct_img_path(
+        ann_path = self.construct_ann_path(
             self.args.project_dir,
             self.topic_pairs.inv_filtered[topic_name],
             "ann",
@@ -56,3 +60,18 @@ class PoseStampedConverter:
             f.seek(0)
             json.dump(ann, f, indent=4)
             f.truncate()
+
+    def construct_ann_path(self, topic_name: str, file_type: str, file_name: str):
+        """
+        Construct the path to image annotation
+        """
+        assert file_type in [
+            "ann",
+            "img",
+            "meta",
+        ], "file type should be one of ['ann', 'img', 'meta']"
+
+        topic_name = topic_name.strip("/").replace("/", "-")
+        return os.path.join(
+            self.args.project_dir, topic_name, file_type, file_name + ".json"
+        )
