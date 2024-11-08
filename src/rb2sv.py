@@ -7,7 +7,9 @@ Main class definition of the module rb2sv.
 import os
 import json
 from itertools import chain
+from pathlib import Path
 
+from uuid import uuid4
 import rosbag2_py
 
 import config
@@ -24,7 +26,7 @@ class Rb2sv:
     __support_types = {
         "content": {
             "images": ["sensor_msgs/msg/CompressedImage", "sensor_msgs/msg/Image"],
-            "point_clouds": ["sensor_msgs/msg/PointCloud2"],
+            "point_cloud_episodes": ["sensor_msgs/msg/PointCloud2"],
         },
         "tag": ["geometry_msgs/msg/PoseStamped"],
     }
@@ -70,12 +72,21 @@ class Rb2sv:
             {img_top: tag_top for (img_top, tag_top) in self.args.topic_pairs}
         )
 
-        all_topics_in_bag = self.__type_dict.keys()
+        # Check for duplicate topics
+        content_topics, tag_topics = zip(*list(topic_pairs.items()))
+        tag_topics = tuple(
+            filter(lambda x: x != "", tag_topics)
+        )  # filter out empty tags
+        assert (len(content_topics) != len(set(content_topics))) and (
+            len(tag_topics != len(set(tag_topics)))
+        ), "Duplicate topics detected in config yaml file."
+
+        all_topics_in_bag = list(self.__type_dict.keys())
         for content_topic, tag_topic in topic_pairs.items():
-            if self.args.project_type == "point_clouds":
+            if self.args.project_type == "point_cloud_episodes":
                 assert (
                     tag_topic == ""
-                ), "Does not support tags for Point Cloud projects now."
+                ), "Does not support adding tags for Point Cloud projects now."
 
             assert (
                 content_topic in all_topics_in_bag
@@ -83,7 +94,7 @@ class Rb2sv:
             assert (
                 self.__type_dict[content_topic]
                 in self.__support_types["content"][self.args.project_type]
-            ), f"{self.__type_dict[content_topic]} is not a supported content type for {self.args.project_type} project"
+            ), f"{self.__type_dict[content_topic]} is not a supported content type for a {self.args.project_type} project"
 
             if tag_topic != "":
                 assert (
@@ -107,13 +118,13 @@ class Rb2sv:
         Construct the directory structure based on supervisely format
         """
         project_dir = self.args.project_dir
-        topic_dirs = [t.strip("/").replace("/", "-") for t in self.topic_pairs.keys()]
+        topic_dirs = [util.parse_topic_name(t) for t in self.topic_pairs.keys()]
 
         if self.args.project_type == "images":
             for topic in topic_dirs:
                 for d in ("ann", "img", "meta"):
                     os.makedirs(os.path.join(project_dir, topic, d), exist_ok=True)
-        elif self.args.project_type == "point_clouds":
+        elif self.args.project_type == "point_cloud_episodes":
             for topic in topic_dirs:
                 os.makedirs(
                     os.path.join(project_dir, topic, "pointcloud"), exist_ok=True
@@ -141,6 +152,26 @@ class Rb2sv:
         }
         with open(os.path.join(self.args.project_dir, "meta.json"), "w") as f:
             json.dump(meta, f, indent=4)
+
+    def __create_pcd_annotation_file(self):
+        """
+        Create annotation.json for each pcd episode
+        """
+        for pcd_topic in self.topic_pairs.keys():
+            topic_dir = Path(
+                os.path.join(self.args.project_dir, util.parse_topic_name(pcd_topic))
+            )
+            frames_count = sum(1 for f in topic_dir.iterdir() if f.is_file())
+            ann = {
+                "description": "",
+                "key": uuid4(),
+                "tags": [],
+                "objects": [],
+                "framesCount": frames_count,
+                "frames": [],
+            }
+            with open(topic_dir / "annotation.json", "w") as f:
+                json.dump(ann, f)
 
     def read_into_project(self):
         """

@@ -50,9 +50,9 @@ class Rb2svConfig:
             util.prompt_confirm(default=False)
 
         self.project_type = self.project_type.lower()
-        if self.project_type not in ("images", "point_clouds"):
+        if self.project_type not in ("images", "point_cloud_episodes"):
             raise InvalidConfigError(
-                f"Only accepts the following project type: ['images', 'point_clouds']"
+                f"Only accepts the following project type: ['images', 'point_cloud_episodes']"
             )
 
         for i, pair in enumerate(self.topic_pairs):

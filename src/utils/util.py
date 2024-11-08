@@ -17,6 +17,10 @@ def is_yaml_file(p: str):
     raise InvalidConfigError(f"Config file should be in yaml format")
 
 
+def parse_topic_name(t: str) -> str:
+    return t.strip("/").replace("/", "-")
+
+
 def prompt_confirm(default=True):
     """
     Prompt the user to continue the process or quit.

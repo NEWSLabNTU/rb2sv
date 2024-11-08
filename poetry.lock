@@ -1488,6 +1488,16 @@ socks = ["pysocks (>=1.5.6,!=1.5.7,<2.0)"]
 zstd = ["zstandard (>=0.18.0)"]
 
 [[package]]
+name = "uuid"
+version = "1.30"
+description = "UUID object and generation functions (Python 2.3 or higher)"
+optional = false
+python-versions = "*"
+files = [
+    {file = "uuid-1.30.tar.gz", hash = "sha256:1f87cc004ac5120466f36c5beae48b4c48cc411968eed0eaecd3da82aa96193f"},
+]
+
+[[package]]
 name = "werkzeug"
 version = "3.0.6"
 description = "The comprehensive WSGI web application library."
@@ -1526,4 +1536,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "c84df15df96e98c466d29b3929d255c9b622eed082186b5492c602de1abcbc35"
+content-hash = "ec21b377915c220ef8cf3fb34f30d24c469f3e9f41456d9e1d842329c5a7f250"

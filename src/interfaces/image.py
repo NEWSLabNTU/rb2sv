@@ -72,5 +72,5 @@ class ImageConverter(BaseConverter):
             "meta",
         ], "file type should be one of ['ann', 'img', 'meta']"
 
-        topic_name = topic_name.strip("/").replace("/", "-")
+        topic_name = util.parse_topic_name(topic_name)
         return os.path.join(self.args.project_dir, topic_name, file_type, file_name)

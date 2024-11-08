@@ -22,16 +22,6 @@ class PointCloudConverter(BaseConverter):
         """
         (topic_name, data, timestamp) = record
         deserialized_msg = deserialize_message(data, PointCloud2)
-
-        cloud_points = point_cloud2.read_points(
-            deserialized_msg, field_names=["x", "y", "z"], skip_nans=True
-        ).tolist()
-        # type should be float64; otherwise o3d would not run successfully
-        cloud_np = np.array(cloud_points, dtype=np.float64)
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(cloud_np)
-        # o3d.visualization.draw_geometries([pcd])
-
         pcd_name = (
             str(deserialized_msg.header.stamp.sec)
             + "-"
@@ -41,11 +31,21 @@ class PointCloudConverter(BaseConverter):
         pcd_path = self.construct_pcd_path(topic_name, pcd_name)
         self.log(f"Transfering {pcd_path}")
 
+        cloud_points = point_cloud2.read_points(
+            deserialized_msg, field_names=["x", "y", "z"], skip_nans=True
+        ).tolist()
+
+        # type should be float64; otherwise o3d would not run successfully
+        cloud_np = np.array(cloud_points, dtype=np.float64)
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(cloud_np)
+        # o3d.visualization.draw_geometries([pcd])
+
         o3d.io.write_point_cloud(pcd_path, pcd)
 
     def construct_pcd_path(self, topic_name: str, file_name: str):
         """
         Construct the path to the point cloud file
         """
-        topic_name = topic_name.strip("/").replace("/", "-")
+        topic_name = util.parse_topic_name(topic_name)
         return os.path.join(self.args.project_dir, topic_name, "pointcloud", file_name)
