@@ -1,4 +1,7 @@
 import os
+import json
+from pathlib import Path
+from collections import defaultdict
 
 import numpy as np
 import open3d as o3d
@@ -12,6 +15,8 @@ from interfaces.base_converter import BaseConverter
 
 class PointCloudConverter(BaseConverter):
     def __init__(self, args) -> None:
+        self.frame_pcd_map_dict = defaultdict(dict)
+        self.frame_pcd_map_cnt = defaultdict(int)
         super().__init__(args)
 
     def convert(self, record):
@@ -31,6 +36,12 @@ class PointCloudConverter(BaseConverter):
         pcd_path = self.construct_pcd_path(topic_name, pcd_name)
         self.log(f"Transfering {pcd_path}")
 
+        # record to frame_pointcloud_map
+        self.frame_pcd_map_dict[topic_name][
+            str(self.frame_pcd_map_cnt[topic_name])
+        ] = pcd_name
+        self.frame_pcd_map_cnt[topic_name] += 1
+
         cloud_points = point_cloud2.read_points(
             deserialized_msg, field_names=["x", "y", "z"], skip_nans=True
         ).tolist()
@@ -49,3 +60,12 @@ class PointCloudConverter(BaseConverter):
         """
         topic_name = util.parse_topic_name(topic_name)
         return os.path.join(self.args.project_dir, topic_name, "pointcloud", file_name)
+
+    def write_frame_pcd_mapjson(self, topic_name: str):
+        json_path = (
+            Path(self.args.project_dir)
+            / util.parse_topic_name(topic_name)
+            / "frame_pointcloud_map.json"
+        )
+        with open(json_path, "w") as f:
+            json.dump(self.frame_pcd_map_dict[topic_name], f, indent=4)
