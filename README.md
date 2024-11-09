@@ -1,24 +1,30 @@
 # RB2SV
 rb2sv is a tool for extracting data from ROS bags and converting it to the Supervisely format.
 
+## Support
+rb2sv now supports converting a ros2 bag to the following project types with message types listed below:
+- Supervisely **images** project type
+    - `sensor_msgs/msg/Image `
+    - `sensor_msgs/msg/CompressedImage `
+- Supervisely **point_cloud_episodes** project type
+    - `geometry_msgs/msg/PointCloud2`
+
+For **images** project type, the following message type can be converted to tags:
+- `sensor_msgs/msg/PoseStamped`
+
+However, for **point_cloud_episodes** project type, rb2sv does not support adding tags currently.
+
+
 # Requirements
 **Environments**<br>
 1. Python **^3.10**
 2. **ROS2** installed
 3. [**Poetry**](https://python-poetry.org/docs/) installed
 
-Install Python Package Dependencies with the following command:
+Install Python package dependencies with the following command:
 ```bash
 poetry install
 ```
-
-# Supported Topic Types
-- **Image Type**
-    - sensor_msgs/msg/Image
-    - sensor_msgs/msg/CompressedImage
-
-- **Tag Type**
-    - geometry_msgs/msg/PoseStamped
 
 # Usage
 Clone the repo.
@@ -36,36 +42,17 @@ source /opt/ros/$ROS_DISTRO/setup.bash
 poetry run poe rb2sv [-h] [-q] -c TOOL_CONFIG.yaml
 # e.g. poetry run poe rb2sv -c ./examples/example_config.yaml
 ```
-
-See `examples/example_config.yaml` for configuration format.<br>
-
-The output directory name is default to `./{rosbag-name}-supervisely`.<br>
-The generated project structure will be like:
-```
-{rosbag-name}-supervisely/
-├── meta.json
-└── {topic-name-1}/
-│   ├── ann/
-│   │   ├── img1.jpeg.json
-│   │   ├── img2.jpeg.json
-│   │   ├── img3.jpeg.json
-│   ... ...
-│
-│   ├── img/
-│   │   ├── img1.jpeg
-│   │   ├── img2.jpeg
-│   │   ├── img3.jpeg
-│   ... ...
-│
-│   └── meta/
-├── {topic-name-2}/
-├── {topic-name-3}/
-...
-
-└── {topic-name-N}/
-```
-
-## Options
-- `-h`, `--help`: Show this help message and exit
+- `-c`, `--config-file-path`: Required. The path to the configuration file.
 - `-q`, `--quiet`: No logging during the conversion.
-- `-c`, `--config-file-path`: Required. The tool configuration.
+- `-h`, `--help`: Show this help message and exit
+
+### Format for the configuration file
+The config file should be a yaml file with following keys:
+- `bag_path`: Required. The path to the ros2 bag directory you want to convert.
+- `project_dir`: Optional. The output directory.
+- `project_type`: Required. Supports only `images` or `point_cloud_episodes` now.
+- `topic_pairs`: Required. An array of pairs of `(content-topic, tag-topic)` to be converted.
+
+See [example_config.yaml](examples/example_config.yaml) for example configuration.<br>
+
+The output directory name is default to `./{rosbag-name}-supervisely`. Each topic specified in the configuration yaml file would be treated as a dataset in the converted supervisely project.
