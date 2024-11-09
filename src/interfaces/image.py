@@ -1,4 +1,3 @@
-import os
 import json
 
 import cv2
@@ -42,9 +41,7 @@ class ImageConverter(BaseConverter):
             + str(deserialized_msg.header.stamp.nanosec)
             + ".jpeg"
         )
-        img_path = self.construct_img_path(
-            self.args.project_dir, topic_name, "img", img_name
-        )
+        img_path = self.construct_img_path(topic_name, "img", img_name)
         self.log(f"Transfering {img_path}")
         cv2.imwrite(img_path, img, [cv2.IMWRITE_JPEG_QUALITY, 100])
 
@@ -56,9 +53,7 @@ class ImageConverter(BaseConverter):
             "tags": [],
             "objects": [],
         }
-        ann_path = self.construct_img_path(
-            self.args.project_dir, topic_name, "ann", img_name + ".json"
-        )
+        ann_path = self.construct_img_path(topic_name, "ann", img_name + ".json")
         with open(ann_path, "w") as j:
             json.dump(annotation, j, indent=4)
 
@@ -73,4 +68,4 @@ class ImageConverter(BaseConverter):
         ], "file type should be one of ['ann', 'img', 'meta']"
 
         topic_name = util.parse_topic_name(topic_name)
-        return os.path.join(self.args.project_dir, topic_name, file_type, file_name)
+        return self.args.project_dir / topic_name / file_type / file_name

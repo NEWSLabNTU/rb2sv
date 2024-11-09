@@ -4,7 +4,6 @@ rb2sv.py
 Main class definition of the module rb2sv.
 """
 
-import os
 import json
 from itertools import chain
 from pathlib import Path
@@ -37,7 +36,7 @@ class Rb2sv:
         # Prepare the reader
         self.reader = rosbag2_py.SequentialReader()
         storage_options = rosbag2_py.StorageOptions(
-            uri=self.args.bag_path, storage_id="sqlite3"
+            uri=self.args.bag_path.as_posix(), storage_id="sqlite3"
         )
         converter_options = rosbag2_py.ConverterOptions(
             input_serialization_format="cdr", output_serialization_format="cdr"
@@ -112,7 +111,7 @@ class Rb2sv:
         """
         Construct the directory structure based on supervisely format
         """
-        project_dir = Path(self.args.project_dir)
+        project_dir = self.args.project_dir
         topic_dirs = [util.parse_topic_name(t) for t in self.topic_pairs.keys()]
 
         if self.args.project_type == "images":
@@ -144,7 +143,7 @@ class Rb2sv:
             "tags": tags,
             "projectType": self.args.project_type,
         }
-        with open(os.path.join(self.args.project_dir, "meta.json"), "w") as f:
+        with open(self.args.project_dir / "meta.json", "w") as f:
             json.dump(meta, f, indent=4)
 
     def __create_pcd_annotation_file(self):
@@ -152,7 +151,7 @@ class Rb2sv:
         Create annotation.json for each pcd episode
         """
         for pcd_topic in self.topic_pairs.keys():
-            topic_dir = Path(self.args.project_dir) / util.parse_topic_name(pcd_topic)
+            topic_dir = self.args.project_dir / util.parse_topic_name(pcd_topic)
             frames_count = sum(
                 [1 for f in (topic_dir / "pointcloud").iterdir() if f.is_file()]
             )

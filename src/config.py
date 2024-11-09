@@ -1,5 +1,4 @@
-import os
-import re
+from pathlib import Path
 
 import yaml
 
@@ -21,31 +20,30 @@ class Rb2svConfig:
 
         with open(yaml_file_path) as f:
             config = yaml.safe_load(f)
+        self.raw_config = config
 
-        for k, v in config.items():
-            if k != "topic_pairs":
-                v = str(v)
-            setattr(self, k, v)
+        # Check if all required args are provided
+        for p in self.required_args:
+            if p not in config.keys():
+                raise InvalidConfigError(f"args {p} is required.")
 
         self.__parse()
 
     def __parse(self):
-        # Check if all required args are provided
-        for p in self.required_args:
-            if not hasattr(self, p):
-                raise InvalidConfigError(f"args {p} is required.")
-
-        # setting default values
-        if not hasattr(self, "project_dir"):
-            setattr(
-                self, "project_dir", f"./{os.path.basename(self.bag_path)}-supervisely"
-            )
+        self.bag_path = Path(self.raw_config["bag_path"])
+        self.project_type = str(self.raw_config["project_type"])
+        self.topic_pairs = self.raw_config["topic_pairs"]
+        self.project_dir = (
+            Path(self.raw_config["project_dir"])
+            if "project_dir" in self.raw_config.keys()
+            else Path(f"./{self.bag_path.name}-supervisely")
+        )
 
         # check config validity and parse them
-        if not os.path.exists(self.bag_path):
+        if not self.bag_path.exists():
             raise InvalidConfigError(f"{self.bag_path} does not exist.")
 
-        if os.path.exists(self.project_dir):
+        if self.project_dir.exists():
             print(f"WARN: The output directory {self.project_dir} already exists.")
             util.prompt_confirm(default=False)
 

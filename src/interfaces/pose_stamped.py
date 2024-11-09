@@ -1,4 +1,3 @@
-import os
 import json
 
 from geometry_msgs.msg import PoseStamped
@@ -34,7 +33,6 @@ class PoseStampedConverter(BaseConverter):
         self.prev_img_name = img_name
 
         ann_path = self.construct_ann_path(
-            self.args.project_dir,
             self.topic_pairs.inv_filtered[topic_name],
             "ann",
             img_name + ".json",
@@ -72,6 +70,4 @@ class PoseStampedConverter(BaseConverter):
         ], "file type should be one of ['ann', 'img', 'meta']"
 
         topic_name = util.parse_topic_name(topic_name)
-        return os.path.join(
-            self.args.project_dir, topic_name, file_type, file_name + ".json"
-        )
+        return self.args.project_dir / topic_name / file_type / file_name

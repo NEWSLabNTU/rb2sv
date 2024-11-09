@@ -1,4 +1,3 @@
-import os
 import json
 from pathlib import Path
 from collections import defaultdict
@@ -52,14 +51,14 @@ class PointCloudConverter(BaseConverter):
         pcd.points = o3d.utility.Vector3dVector(cloud_np)
         # o3d.visualization.draw_geometries([pcd])
 
-        o3d.io.write_point_cloud(pcd_path, pcd)
+        o3d.io.write_point_cloud(pcd_path.as_posix(), pcd)
 
     def construct_pcd_path(self, topic_name: str, file_name: str):
         """
         Construct the path to the point cloud file
         """
         topic_name = util.parse_topic_name(topic_name)
-        return os.path.join(self.args.project_dir, topic_name, "pointcloud", file_name)
+        return self.args.project_dir / topic_name / "pointcloud" / file_name
 
     def write_frame_pcd_mapjson(self, topic_name: str):
         json_path = (
