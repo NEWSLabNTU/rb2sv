@@ -27,10 +27,12 @@ poetry install
 ```
 
 # Usage
-Clone the repo.
+Clone the repo and install dependencies.
 ```bash
 git clone https://github.com/NEWSLabNTU/rb2sv.git
 cd rb2sv
+poetry shell
+poetry install
 ```
 **Source** the ROS2 setup script before you start.
 ```bash
