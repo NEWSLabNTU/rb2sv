@@ -46,7 +46,7 @@ class PoseStampedConverter(BaseConverter):
         oz = util.scientific_to_decimal(deserialized_msg.pose.orientation.z)
         ow = util.scientific_to_decimal(deserialized_msg.pose.orientation.w)
         tag = {
-            "name": "PoseStamped",
+            "name": topic_name.split("/")[-1],
             "value": f"({px}, {py}, {pz}, {ox}, {oy}, {oz}, {ow})",
         }
 
