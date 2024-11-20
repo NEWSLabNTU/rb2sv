@@ -6,7 +6,6 @@ Main class definition of the module rb2sv.
 
 import json
 from itertools import chain
-from pathlib import Path
 
 from uuid import uuid4
 import rosbag2_py
